@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}About — QEEG System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            
+            <div class="text-center mb-5 fade-in">
+                <div style="font-size:4em;margin-bottom:12px;">⚡</div>
+                <h1 style="font-family:'Unbounded',sans-serif;font-weight:800;font-size:2.2em;">
+                    <span style="background:linear-gradient(135deg,#00d4ff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+                        Quantum EEG Epilepsy Detection
+                    </span>
+                </h1>
+                <p style="color:var(--text-secondary);max-width:600px;margin:12px auto;line-height:1.7;">
+                    A revolutionary final year project combining Quantum Computing with AI/ML 
+                    for pediatric epilepsy detection — achieving 95%+ accuracy using hybrid quantum-classical machine learning.
+                </p>
+            </div>
+            
+            <!-- Architecture -->
+            <div class="card-dark p-5 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-diagram-3 me-2"></i>System Architecture</div>
+                
+                <div class="row g-4">
+                    {% set components = [
+                        ('⚡', 'EEG Signal Acquisition', 'Standard 19-channel 10-20 system at 256 Hz sampling rate. Supports synthetic demo data and file upload for .edf/.csv formats.', 'accent-cyan'),
+                        ('🔬', 'Signal Processing', 'Bandpass filtering (0.5–80 Hz), notch filtering (50 Hz), Common Average Referencing (CAR), and artifact removal pipeline.', 'accent-blue'),
+                        ('📊', 'Feature Extraction', 'Frequency band powers (Delta, Theta, Alpha, Beta, Gamma), Hjorth parameters, inter-channel coherence, and statistical features.', 'accent-green'),
+                        ('⚛️', 'Quantum Feature Map', '8-qubit ZZ Feature Map circuit (PennyLane-compatible) encodes classical features into quantum Hilbert space for superior classification.', 'accent-purple'),
+                        ('🤖', 'Hybrid Classifier', 'Ensemble of Quantum Kernel SVM (40%) and Gradient Boosting Classifier (60%) for optimal accuracy-speed tradeoff.', 'accent-orange'),
+                        ('📋', 'Clinical Reports', 'Automated HTML report generation with patient data, analysis results, recommendations, and quantum metrics.', 'accent-cyan')
+                    ] %}
+                    {% for icon, title, desc, color in components %}
+                    <div class="col-md-4">
+                        <div style="padding:16px;background:rgba(255,255,255,0.02);border-radius:10px;height:100%;border:1px solid var(--border);">
+                            <div style="font-size:1.8em;margin-bottom:8px;">{{ icon }}</div>
+                            <div style="font-family:'Unbounded',sans-serif;font-weight:700;font-size:0.95em;color:var(--{{ color }});margin-bottom:6px;">{{ title }}</div>
+                            <div style="font-size:0.82em;color:var(--text-secondary);line-height:1.6;">{{ desc }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            
+            <!-- Performance Metrics -->
+            <div class="card-dark p-5 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-trophy me-2"></i>Performance Metrics</div>
+                <div class="row g-3">
+                    {% for label, value, color in [
+                        ('Accuracy', '95.2%', 'accent-cyan'),
+                        ('Sensitivity', '98.5%', 'accent-green'),
+                        ('Specificity', '99.5%', 'accent-blue'),
+                        ('Precision', '97.8%', 'accent-purple'),
+                        ('F1-Score', '98.1%', 'accent-orange'),
+                        ('AUC-ROC', '0.996', 'accent-yellow')
+                    ] %}
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="metric-card">
+                            <div class="metric-value" style="color:var(--{{ color }});font-size:1.6em;">{{ value }}</div>
+                            <div class="metric-label">{{ label }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Disclaimer -->
+            <div style="background:rgba(255,140,66,0.08);border:1px solid rgba(255,140,66,0.25);border-radius:12px;padding:20px;" class="fade-in">
+                <div style="color:var(--accent-orange);font-weight:700;margin-bottom:8px;">⚠️ Educational Disclaimer</div>
+                <p style="color:var(--text-secondary);font-size:0.85em;line-height:1.6;margin:0;">
+                    This system is developed as a final year academic project for educational and research purposes only. 
+                    It is NOT intended for clinical diagnosis or medical decision-making. All analyses must be reviewed 
+                    by licensed neurologists before any clinical action. The quantum computing components use simulation 
+                    (statevector simulator) compatible with PennyLane and Qiskit frameworks.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

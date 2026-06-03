@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}Results {{ analysis.analysis_id }} — QEEG System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    
+    {% set isSeizure = analysis.prediction == 'Seizure' %}
+    {% set color = '#ff4757' if isSeizure else '#00e98a' %}
+    
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4 fade-in flex-wrap gap-3">
+        <div>
+            <div class="quantum-chip mb-2" style="display:inline-block;">
+                Analysis ID: {{ analysis.analysis_id }} · {{ analysis.timestamp }}
+            </div>
+            <h2 style="font-family:'Unbounded',sans-serif;font-weight:800;">
+                <span style="color:{{ color }};">{% if isSeizure %}🚨 Seizure Detected{% else %}✅ Normal EEG{% endif %}</span>
+            </h2>
+            <div style="color:var(--text-secondary);font-size:0.9em;">
+                {{ analysis.patient_name }} · Age {{ analysis.patient_age }} · ID: {{ analysis.patient_id }}
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/api/generate_report/{{ analysis.analysis_id }}" class="btn-outline-cyan btn">
+                <i class="bi bi-download me-1"></i>Download Report
+            </a>
+            <a href="/analyze" class="btn-quantum btn">
+                <i class="bi bi-plus me-1"></i>New Analysis
+            </a>
+        </div>
+    </div>
+    
+    <!-- Key Metrics Row -->
+    <div class="row g-3 mb-4 fade-in">
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:{{ color }};">{{ analysis.seizure_probability }}%</div>
+                <div class="metric-label">Seizure Probability</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-cyan);">{{ analysis.confidence }}%</div>
+                <div class="metric-label">Model Confidence</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:
+                    {% if analysis.risk_level == 'High' %}var(--accent-red)
+                    {% elif analysis.risk_level == 'Medium' %}var(--accent-orange)
+                    {% elif analysis.risk_level == 'Low' %}var(--accent-blue)
+                    {% else %}var(--accent-green){% endif %};">
+                    {{ analysis.risk_level }}
+                </div>
+                <div class="metric-label">Risk Level</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-purple);">{{ analysis.processing_time }}s</div>
+                <div class="metric-label">Processing Time</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="row g-4">
+        
+        <!-- Charts Column -->
+        <div class="col-lg-8">
+            
+            <!-- Band Powers -->
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-bar-chart me-2"></i>Frequency Band Analysis</div>
+                <div id="bandPowerChart" style="height:250px;"></div>
+            </div>
+            
+            <!-- EEG Waveform Recreation -->
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-activity me-2"></i>EEG Signal Visualization</div>
+                <div id="eegWaveform" style="height:300px;"></div>
+            </div>
+            
+            <!-- Topographic Map -->
+            <div class="card-dark p-4 fade-in">
+                <div class="section-header"><i class="bi bi-diagram-3 me-2"></i>Topographic Brain Map</div>
+                <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+                    <div id="topoMap" style="width:260px;height:260px;flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:200px;">
+                        <p style="color:var(--text-secondary);font-size:0.85em;line-height:1.6;">
+                            The topographic map shows the spatial distribution of EEG activity across the scalp 
+                            using the standard 10-20 electrode placement system.
+                        </p>
+                        <div style="margin-top:12px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                <div style="width:60px;height:8px;background:linear-gradient(to right,#3b7bff,#00d4ff,#00e98a,#ffd700,#ff4757);border-radius:4px;"></div>
+                                <span style="font-size:0.75em;color:var(--text-muted);">Low → High Activity</span>
+                            </div>
+                            <p style="font-size:0.78em;color:var(--text-muted);">
+                                Warmer colors indicate higher beta/gamma band activity, often associated with seizure foci.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            
+            <!-- Clinical Notes -->
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-file-medical me-2"></i>Clinical Notes</div>
+                <ul style="padding-left:16px;margin:0;display:flex;flex-direction:column;gap:8px;">
+                    {% for note in analysis.clinical_notes %}
+                    <li style="color:var(--text-secondary);font-size:0.82em;line-height:1.5;">{{ note }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- Recommendations -->
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-clipboard-pulse me-2"></i>Recommendations</div>
+                <div class="d-flex flex-column gap-2">
+                    {% for rec in analysis.recommendations %}
+                    {% set p_colors = {'URGENT': '#ff4757', 'HIGH': '#ff8c42', 'MEDIUM': '#3b7bff', 'INFO': '#00e98a'} %}
+                    {% set pc = p_colors.get(rec.priority, '#8ba0c4') %}
+                    <div style="display:flex;gap:10px;padding:10px;border-left:3px solid {{ pc }};background:rgba(255,255,255,0.02);border-radius:6px;">
+                        <span style="font-size:1.3em;flex-shrink:0;">{{ rec.icon }}</span>
+                        <div>
+                            <div style="color:{{ pc }};font-size:0.68em;font-weight:700;letter-spacing:1px;">{{ rec.priority }}</div>
+                            <div style="font-size:0.78em;color:var(--text-secondary);margin-top:2px;">{{ rec.action }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Quantum Features -->
+            <div class="card-dark p-4 fade-in">
+                <div class="section-header"><i class="bi bi-cpu me-2"></i>Quantum Metrics</div>
+                {% set qf = analysis.quantum_features %}
+                <div class="d-flex flex-column gap-1">
+                    {% set qitems = [
+                        ('Kernel (Normal)', qf.kernel_similarity_normal, 'accent-green'),
+                        ('Kernel (Seizure)', qf.kernel_similarity_seizure, 'accent-red'),
+                        ('Quantum Score', qf.quantum_seizure_score, 'accent-orange'),
+                        ('Entanglement', qf.entanglement_entropy, 'accent-purple'),
+                        ('Fisher Info', qf.quantum_fisher_info, 'accent-blue'),
+                        ('N Qubits', qf.n_qubits, 'accent-cyan'),
+                        ('Circuit Depth', qf.circuit_depth, 'accent-cyan'),
+                    ] %}
+                    {% for label, val, color in qitems %}
+                    <div class="d-flex justify-content-between py-1" style="border-bottom:1px solid rgba(30,45,71,0.5);">
+                        <span style="font-size:0.78em;color:var(--text-secondary);">{{ label }}</span>
+                        <span style="font-family:'DM Mono',monospace;font-size:0.78em;color:var(--{{ color }});">
+                            {% if val is number %}{{ "%.4f"|format(val) }}{% else %}{{ val }}{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-3 quantum-chip" style="font-size:0.72em;">
+                    Backend: {{ analysis.quantum_features.get('quantum_backend', 'Statevector Simulator') if analysis.quantum_features else 'N/A' }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const bandPowers = {{ analysis.band_powers | tojson }};
+const topoData = {{ analysis.topographic_map | tojson }};
+const isSeizure = {{ 'true' if analysis.prediction == 'Seizure' else 'false' }};
+
+// Band Power Chart
+const bands = Object.keys(bandPowers);
+const powers = Object.values(bandPowers);
+const bandColors = ['#8b5cf6', '#3b7bff', '#00d4ff', '#00e98a', '#ff8c42'];
+
+Plotly.newPlot('bandPowerChart', [
+    {
+        x: bands, y: powers, type: 'bar',
+        marker: { 
+            color: bandColors,
+            opacity: 0.85,
+            line: { color: bandColors, width: 1 }
+        },
+        hovertemplate: '<b>%{x}</b><br>Power: %{y:.4f} μV²/Hz<extra></extra>'
+    }
+], {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: { color: '#8ba0c4', size: 11 },
+    xaxis: { gridcolor: '#1e2d47', color: '#4a6080' },
+    yaxis: { gridcolor: '#1e2d47', color: '#4a6080', title: { text: 'Power (μV²/Hz)', font: { size: 10 } } },
+    margin: { t: 10, r: 10, b: 30, l: 60 }
+}, { responsive: true, displayModeBar: false });
+
+// EEG Waveform
+const t = Array.from({length: 512}, (_, i) => i / 256);
+const chNames = ['Fp1', 'F3', 'C3', 'P3', 'O1'];
+const colors = ['#00d4ff', '#8b5cf6', '#00e98a', '#ff8c42', '#ff4757'];
+
+const traces = chNames.map((ch, idx) => {
+    const offset = idx * 3;
+    const y = t.map(ti => {
+        let v = Math.sin(2*Math.PI*10*ti + idx*0.8) * 1.2
+               + Math.sin(2*Math.PI*20*ti) * 0.4
+               + (Math.random() - 0.5) * 0.25;
+        if (isSeizure && idx >= 1) {
+            v += Math.sin(2*Math.PI*3*ti) * 2.5;
+        }
+        return v - offset;
+    });
+    return { x: t, y, name: ch, type: 'scatter', mode: 'lines', 
+             line: { color: colors[idx], width: 1.2 }, hoverinfo: 'none' };
+});
+
+Plotly.newPlot('eegWaveform', traces, {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: { color: '#8ba0c4', size: 10 },
+    xaxis: { gridcolor: 'rgba(30,45,71,0.4)', color: '#4a6080', title: { text: 'Time (s)', font: { size: 10 } } },
+    yaxis: { gridcolor: 'rgba(30,45,71,0.2)', color: '#4a6080', showticklabels: false },
+    legend: { bgcolor: 'transparent', font: { color: '#8ba0c4', size: 10 }, orientation: 'h', y: -0.15 },
+    margin: { t: 10, r: 10, b: 50, l: 30 }
+}, { responsive: true, displayModeBar: false });
+
+// Topographic Map
+if (topoData && topoData.length > 0) {
+    const topoX = topoData.map(d => d.x);
+    const topoY = topoData.map(d => d.y);
+    const topoValues = topoData.map(d => d.value);
+    const topoLabels = topoData.map(d => d.channel);
+    
+    Plotly.newPlot('topoMap', [
+        {
+            x: topoX, y: topoY, z: topoValues,
+            type: 'heatmap',
+            colorscale: [
+                [0, '#3b7bff'], [0.25, '#00d4ff'], 
+                [0.5, '#00e98a'], [0.75, '#ffd700'], [1, '#ff4757']
+            ],
+            showscale: false,
+            hovertemplate: '<b>%{text}</b><br>Activity: %{z:.4f}<extra></extra>',
+            text: topoLabels
+        },
+        {
+            x: topoX, y: topoY,
+            text: topoLabels,
+            mode: 'text+markers',
+            type: 'scatter',
+            textfont: { color: 'white', size: 8 },
+            marker: { color: 'rgba(255,255,255,0.3)', size: 16 },
+            textposition: 'middle center',
+            hoverinfo: 'skip'
+        }
+    ], {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        xaxis: { visible: false, range: [-1.1, 1.1] },
+        yaxis: { visible: false, range: [-1.1, 1.1], scaleanchor: 'x' },
+        margin: { t: 0, r: 0, b: 0, l: 0 },
+        showlegend: false
+    }, { responsive: true, displayModeBar: false });
+}
+</script>
+{% endblock %}

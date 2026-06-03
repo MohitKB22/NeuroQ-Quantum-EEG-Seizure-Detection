@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Analysis History — QEEG System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in flex-wrap gap-3">
+        <div>
+            <h2 style="font-family:'Unbounded',sans-serif;font-weight:800;">Analysis History</h2>
+            <div style="color:var(--text-muted);font-size:0.85em;">{{ analyses|length }} total analyses stored</div>
+        </div>
+        <a href="/analyze" class="btn-quantum btn">
+            <i class="bi bi-plus me-1"></i>New Analysis
+        </a>
+    </div>
+    
+    {% if analyses %}
+    
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4 fade-in">
+        {% set seizure_count = analyses | selectattr('prediction', 'equalto', 'Seizure') | list | length %}
+        {% set normal_count = analyses | selectattr('prediction', 'equalto', 'Normal') | list | length %}
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-cyan);">{{ analyses|length }}</div>
+                <div class="metric-label">Total Analyses</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-red);">{{ seizure_count }}</div>
+                <div class="metric-label">Seizures Found</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-green);">{{ normal_count }}</div>
+                <div class="metric-label">Normal EEGs</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-purple);">
+                    {% if analyses %}{{ "%.1f"|format(analyses | map(attribute='confidence') | select | list | sum / analyses|length) }}%{% else %}0%{% endif %}
+                </div>
+                <div class="metric-label">Avg Confidence</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Full Table -->
+    <div class="card-dark p-4 fade-in">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0" style="--bs-table-bg:transparent;--bs-table-hover-bg:rgba(255,255,255,0.025);">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--border);">
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Analysis ID</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Patient</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Age</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Result</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Risk</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Seizure Prob.</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Confidence</th>
+                        <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:10px 12px;">Timestamp</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in analyses %}
+                    <tr style="border-bottom:1px solid rgba(30,45,71,0.4);">
+                        <td style="padding:10px 12px;font-family:'DM Mono',monospace;font-size:0.8em;color:var(--accent-cyan);">{{ a.analysis_id }}</td>
+                        <td style="padding:10px 12px;font-size:0.85em;">{{ a.patient_name or 'Anonymous' }}</td>
+                        <td style="padding:10px 12px;font-size:0.85em;color:var(--text-secondary);">{{ a.patient_age or '?' }}</td>
+                        <td style="padding:10px 12px;">
+                            {% if a.prediction == 'Seizure' %}
+                                <span class="badge-seizure">SEIZURE</span>
+                            {% else %}
+                                <span class="badge-normal">NORMAL</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 12px;">
+                            <span class="badge-risk-{{ (a.risk_level or 'minimal')|lower }}">{{ a.risk_level or 'N/A' }}</span>
+                        </td>
+                        <td style="padding:10px 12px;font-family:'DM Mono',monospace;font-size:0.82em;
+                            color:{% if a.seizure_probability > 60 %}var(--accent-red){% elif a.seizure_probability > 30 %}var(--accent-orange){% else %}var(--accent-green){% endif %};">
+                            {{ a.seizure_probability or 0 }}%
+                        </td>
+                        <td style="padding:10px 12px;font-family:'DM Mono',monospace;font-size:0.82em;color:var(--accent-cyan);">{{ a.confidence or 0 }}%</td>
+                        <td style="padding:10px 12px;font-size:0.78em;color:var(--text-muted);">{{ a.timestamp }}</td>
+                        <td style="padding:10px 12px;">
+                            <div class="d-flex gap-1">
+                                <a href="/results/{{ a.analysis_id }}" class="btn btn-sm" style="background:rgba(0,212,255,0.1);color:var(--accent-cyan);border:1px solid rgba(0,212,255,0.3);font-size:0.75em;padding:3px 8px;border-radius:5px;">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="/api/generate_report/{{ a.analysis_id }}" class="btn btn-sm" style="background:rgba(139,92,246,0.1);color:var(--accent-purple);border:1px solid rgba(139,92,246,0.3);font-size:0.75em;padding:3px 8px;border-radius:5px;">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% else %}
+    <div class="card-dark p-5 text-center fade-in">
+        <div style="font-size:4em;margin-bottom:16px;opacity:0.3;">📊</div>
+        <div style="color:var(--text-muted);font-size:0.9em;">No analyses yet.</div>
+        <a href="/analyze" class="btn-quantum btn mt-3">Run First Analysis</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

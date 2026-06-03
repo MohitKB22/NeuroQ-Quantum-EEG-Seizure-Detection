@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+{% block title %}Upload Medical Report — QEEG System{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Upload zone ── */
+.drop-zone {
+    border: 2px dashed var(--border-bright);
+    border-radius: 16px;
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(59,123,255,0.03);
+    position: relative;
+}
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent-cyan);
+    background: rgba(0,212,255,0.06);
+    box-shadow: 0 0 30px rgba(0,212,255,0.1);
+}
+.drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.drop-icon {
+    font-size: 3.5em;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 12px rgba(0,212,255,0.4));
+}
+
+/* ── Result cards ── */
+.result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: fadeInUp 0.5s ease-out;
+}
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.verdict-banner {
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.verdict-icon { font-size: 2.2em; }
+
+.verdict-text {
+    font-family: 'Clash Display', 'DM Sans', sans-serif;
+    font-size: 1.3em;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+/* ── Keyword chips ── */
+.kw-chip {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72em;
+    font-weight: 600;
+    margin: 3px;
+    letter-spacing: 0.3px;
+}
+.kw-seizure  { background: rgba(255,71,87,0.12);  color: #ff4757; border: 1px solid rgba(255,71,87,0.3); }
+.kw-eeg      { background: rgba(0,212,255,0.1);   color: #00d4ff; border: 1px solid rgba(0,212,255,0.3); }
+.kw-normal   { background: rgba(0,233,138,0.1);   color: #00e98a; border: 1px solid rgba(0,233,138,0.3); }
+.kw-med      { background: rgba(139,92,246,0.1);  color: #8b5cf6; border: 1px solid rgba(139,92,246,0.3); }
+.kw-region   { background: rgba(255,140,66,0.1);  color: #ff8c42; border: 1px solid rgba(255,140,66,0.3); }
+
+/* ── Progress bar ── */
+.prob-bar-track {
+    height: 10px;
+    background: var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+.prob-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 1.2s cubic-bezier(.4,0,.2,1);
+    width: 0%;
+}
+
+/* ── Key sentence quote ── */
+.key-sentence {
+    border-left: 3px solid var(--accent-cyan);
+    padding: 8px 14px;
+    margin-bottom: 8px;
+    background: rgba(0,212,255,0.04);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.83em;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-style: italic;
+}
+
+/* ── Text preview ── */
+.text-preview {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.75em;
+    color: var(--text-muted);
+    max-height: 160px;
+    overflow-y: auto;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ── Upload progress ── */
+.upload-progress {
+    display: none;
+    padding: 24px;
+    text-align: center;
+}
+.upload-spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-cyan);
+    border-right-color: var(--accent-purple);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Page Header -->
+    <div class="mb-4 fade-in">
+        <div class="quantum-chip mb-2" style="display:inline-block;">
+            <i class="bi bi-file-earmark-medical me-1"></i>
+            Medical Report Analyzer · NLP + Keyword Intelligence
+        </div>
+        <h1 style="font-family:'Clash Display','DM Sans',sans-serif;font-size:2em;font-weight:800;line-height:1.2;">
+            Upload Medical<br>
+            <span style="background:linear-gradient(135deg,#00d4ff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+                Report Analysis
+            </span>
+        </h1>
+        <p style="color:var(--text-secondary);margin-top:10px;max-width:560px;line-height:1.7;font-size:0.92em;">
+            Upload a patient's medical report (PDF, TXT) and the AI will scan for
+            EEG-related terms, seizure indicators, anti-epileptic medications, and
+            brain region references to assess epilepsy risk.
+        </p>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Upload Panel -->
+        <div class="col-lg-5">
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-upload me-2"></i>Upload Report</div>
+
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="reportFile" accept=".pdf,.txt,.png,.jpg,.jpeg"
+                           onchange="handleFileSelect(this)">
+                    <div class="drop-icon">📄</div>
+                    <div style="font-family:'DM Sans',sans-serif;font-size:1em;font-weight:600;color:var(--text-primary);margin-bottom:6px;">
+                        Drop report here or click to browse
+                    </div>
+                    <div style="color:var(--text-muted);font-size:0.8em;">
+                        Supports: PDF · TXT · PNG · JPG
+                    </div>
+                    <div style="color:var(--text-muted);font-size:0.72em;margin-top:6px;">
+                        Max 10 MB · Text layer required for PDFs
+                    </div>
+                </div>
+
+                <!-- Selected file display -->
+                <div id="fileSelected" style="display:none;margin-top:12px;padding:12px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.5em;" id="fileIcon">📄</span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:0.85em;font-weight:600;color:var(--accent-cyan);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fileName">—</div>
+                            <div style="font-size:0.72em;color:var(--text-muted);" id="fileSize">—</div>
+                        </div>
+                        <button onclick="clearFile()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1em;">✕</button>
+                    </div>
+                </div>
+
+                <!-- Analyze button -->
+                <button id="analyzeBtn" onclick="analyzeReport()"
+                    class="btn-quantum btn w-100 mt-3 py-3" disabled
+                    style="font-size:0.95em;letter-spacing:1px;">
+                    <i class="bi bi-search me-2"></i>ANALYZE REPORT
+                </button>
+
+                <!-- Upload progress -->
+                <div class="upload-progress" id="uploadProgress">
+                    <div class="upload-spinner"></div>
+                    <div style="font-family:'DM Sans',sans-serif;font-weight:600;color:var(--accent-cyan);" id="progressTitle">
+                        Extracting text...
+                    </div>
+                    <div style="color:var(--text-muted);font-size:0.8em;margin-top:4px;" id="progressSub">
+                        Processing medical report
+                    </div>
+                </div>
+            </div>
+
+            <!-- What we detect -->
+            <div class="card-dark p-4 fade-in">
+                <div class="section-header"><i class="bi bi-search me-2"></i>What We Detect</div>
+                <div class="d-flex flex-column gap-2">
+                    {% set detects = [
+                        ('🔴', 'Seizure & Epilepsy Terms', 'Seizure, convulsion, ictal, tonic-clonic, absence, spike-wave...', 'accent-red'),
+                        ('🔵', 'EEG Terminology', 'Electroencephalogram, delta/theta/alpha/beta waves, EEG abnormality...', 'accent-cyan'),
+                        ('🟣', 'Anti-Epileptic Meds', 'Valproate, levetiracetam, carbamazepine, lamotrigine, Keppra...', 'accent-purple'),
+                        ('🟠', 'Brain Regions', 'Temporal, frontal, hippocampus, bilateral, cortical...', 'accent-orange'),
+                        ('🟢', 'Normal Indicators', 'Normal EEG, no epileptiform, within normal limits...', 'accent-green'),
+                    ] %}
+                    {% for icon, label, desc, color in detects %}
+                    <div style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border);">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                            <span>{{ icon }}</span>
+                            <span style="color:var(--{{ color }});font-size:0.82em;font-weight:600;">{{ label }}</span>
+                        </div>
+                        <div style="color:var(--text-muted);font-size:0.74em;padding-left:24px;">{{ desc }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="col-lg-7">
+            <!-- Placeholder -->
+            <div id="placeholder" class="card-dark p-5 text-center fade-in" style="min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div style="font-size:5em;margin-bottom:16px;opacity:0.15;">🔬</div>
+                <div style="font-family:'DM Sans',sans-serif;font-size:1.1em;font-weight:600;color:var(--text-muted);">
+                    No report analyzed yet
+                </div>
+                <div style="color:var(--text-muted);font-size:0.82em;margin-top:8px;max-width:300px;">
+                    Upload a medical report on the left to scan for EEG and epilepsy indicators
+                </div>
+            </div>
+
+            <!-- Results (shown after analysis) -->
+            <div id="resultsArea" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedFile = null;
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+});
+
+function handleFileSelect(input) {
+    if (input.files[0]) setFile(input.files[0]);
+}
+
+function setFile(file) {
+    selectedFile = file;
+    const icons = { 'pdf': '📋', 'txt': '📄', 'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️' };
+    const ext = file.name.split('.').pop().toLowerCase();
+    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+
+    document.getElementById('fileIcon').textContent = icons[ext] || '📄';
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = `${sizeMB} MB · ${ext.toUpperCase()}`;
+    document.getElementById('fileSelected').style.display = 'block';
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('dropZone').querySelector('div.drop-icon').textContent = icons[ext] || '📄';
+}
+
+function clearFile() {
+    selectedFile = null;
+    document.getElementById('fileSelected').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('reportFile').value = '';
+    document.getElementById('dropZone').querySelector('div.drop-icon').textContent = '📄';
+}
+
+async function analyzeReport() {
+    if (!selectedFile) return;
+
+    // Show progress
+    document.getElementById('analyzeBtn').style.display = 'none';
+    document.getElementById('uploadProgress').style.display = 'block';
+
+    const steps = [
+        ['Uploading report...', 'Sending to server'],
+        ['Extracting text...', 'Parsing document content'],
+        ['Scanning keywords...', 'Detecting EEG & seizure terms'],
+        ['Computing risk score...', 'AI analysis in progress'],
+    ];
+    let stepIdx = 0;
+    const stepTimer = setInterval(() => {
+        if (stepIdx < steps.length) {
+            document.getElementById('progressTitle').textContent = steps[stepIdx][0];
+            document.getElementById('progressSub').textContent = steps[stepIdx][1];
+            stepIdx++;
+        }
+    }, 600);
+
+    const formData = new FormData();
+    formData.append('report_file', selectedFile);
+
+    try {
+        const resp = await fetch('/upload_report', { method: 'POST', body: formData });
+        clearInterval(stepTimer);
+
+        const data = await resp.json();
+
+        document.getElementById('uploadProgress').style.display = 'none';
+        document.getElementById('analyzeBtn').style.display = 'block';
+
+        if (!resp.ok || data.error) {
+            showError(data.error || 'Analysis failed');
+            return;
+        }
+
+        renderResults(data);
+        document.getElementById('placeholder').style.display = 'none';
+        document.getElementById('resultsArea').style.display = 'block';
+        showToast(`Analysis complete: ${data.verdict}`,
+            data.risk_level === 'High' ? 'error' : data.risk_level === 'Medium' ? 'warning' : 'success');
+
+    } catch (e) {
+        clearInterval(stepTimer);
+        document.getElementById('uploadProgress').style.display = 'none';
+        document.getElementById('analyzeBtn').style.display = 'block';
+        showError('Network error — is the server running?');
+    }
+}
+
+function showError(msg) {
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('resultsArea').style.display = 'block';
+    document.getElementById('resultsArea').innerHTML = `
+        <div style="background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);border-radius:14px;padding:28px;text-align:center;">
+            <div style="font-size:2.5em;margin-bottom:12px;">⚠️</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:1.1em;font-weight:600;color:#ff4757;margin-bottom:8px;">Analysis Failed</div>
+            <div style="color:var(--text-secondary);font-size:0.85em;line-height:1.6;">${msg}</div>
+            <button onclick="document.getElementById('resultsArea').style.display='none';document.getElementById('placeholder').style.display='flex';"
+                class="btn-outline-cyan btn mt-4" style="font-size:0.85em;">Try Again</button>
+        </div>`;
+    showToast(msg, 'error');
+}
+
+function renderResults(d) {
+    const riskColors = { High: '#ff4757', Medium: '#ff8c42', Low: '#3b7bff', Minimal: '#00e98a' };
+    const riskColor = riskColors[d.risk_level] || '#8ba0c4';
+    const isHigh = d.risk_level === 'High' || d.risk_level === 'Medium';
+
+    const verdictIcon = d.is_explicitly_normal ? '✅' :
+                        d.risk_level === 'High' ? '🚨' :
+                        d.risk_level === 'Medium' ? '⚠️' :
+                        d.risk_level === 'Low' ? '🔍' : '✅';
+
+    const verdictBg = d.is_explicitly_normal
+        ? 'linear-gradient(135deg,rgba(0,233,138,0.12),rgba(0,233,138,0.04))'
+        : d.risk_level === 'High'
+        ? 'linear-gradient(135deg,rgba(255,71,87,0.15),rgba(255,71,87,0.05))'
+        : d.risk_level === 'Medium'
+        ? 'linear-gradient(135deg,rgba(255,140,66,0.12),rgba(255,140,66,0.04))'
+        : 'linear-gradient(135deg,rgba(0,212,255,0.08),rgba(0,212,255,0.02))';
+
+    // Keyword chips
+    const chips = (arr, cls) => arr.map(k =>
+        `<span class="kw-chip ${cls}">${k}</span>`).join('');
+
+    // Key sentences
+    const sentences = (d.key_sentences || []).map(s =>
+        `<div class="key-sentence">"${s}"</div>`).join('') ||
+        '<div style="color:var(--text-muted);font-size:0.82em;">No key sentences extracted.</div>';
+
+    // Recommendations
+    const pColors = { URGENT:'#ff4757', HIGH:'#ff8c42', MEDIUM:'#3b7bff', INFO:'#00e98a' };
+    const recHtml = (d.recommendations || []).map(r =>
+        `<div style="display:flex;gap:10px;padding:9px 12px;border-left:3px solid ${pColors[r.priority]||'#8ba0c4'};background:rgba(255,255,255,0.02);border-radius:0 8px 8px 0;margin-bottom:6px;">
+            <span style="font-size:1.2em;flex-shrink:0;">${r.icon}</span>
+            <div>
+                <div style="color:${pColors[r.priority]||'#8ba0c4'};font-size:0.68em;font-weight:700;letter-spacing:1px;">${r.priority}</div>
+                <div style="font-size:0.80em;color:var(--text-secondary);margin-top:1px;">${r.text}</div>
+            </div>
+        </div>`
+    ).join('');
+
+    // Probability bar color
+    const probColor = d.eeg_probability > 60 ? '#ff4757' : d.eeg_probability > 35 ? '#ff8c42' : '#00e98a';
+
+    document.getElementById('resultsArea').innerHTML = `
+    <div class="result-card mb-4">
+        <!-- Verdict banner -->
+        <div class="verdict-banner" style="background:${verdictBg};border-bottom:1px solid var(--border);">
+            <div class="verdict-icon">${verdictIcon}</div>
+            <div>
+                <div style="font-size:0.7em;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">
+                    AI VERDICT · ${d.filename}
+                </div>
+                <div class="verdict-text" style="color:${riskColor};">${d.verdict}</div>
+                <div style="color:var(--text-muted);font-size:0.78em;margin-top:2px;">
+                    ${d.analyzed_at} · ${d.word_count.toLocaleString()} words · ${d.extraction_method}
+                </div>
+            </div>
+            <div style="margin-left:auto;text-align:center;flex-shrink:0;">
+                <div style="font-family:'DM Mono',monospace;font-size:1.8em;font-weight:700;color:${probColor};line-height:1;">
+                    ${d.eeg_probability}%
+                </div>
+                <div style="font-size:0.7em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">EEG Risk</div>
+                <span style="font-size:0.72em;font-weight:700;padding:3px 10px;border-radius:12px;
+                    background:${riskColor}22;color:${riskColor};border:1px solid ${riskColor}44;">
+                    ${d.risk_level}
+                </span>
+            </div>
+        </div>
+
+        <div style="padding:20px 24px;">
+            <!-- Risk probability bar -->
+            <div style="margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Epilepsy Risk Score</span>
+                    <span style="font-family:'DM Mono',monospace;font-size:0.82em;color:${probColor};">${d.eeg_probability}%</span>
+                </div>
+                <div class="prob-bar-track">
+                    <div class="prob-bar-fill" id="probBar"
+                         style="background:linear-gradient(to right,#3b7bff,${probColor});"></div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div style="margin-bottom:20px;">
+                <div class="section-header"><i class="bi bi-card-text me-2"></i>Summary</div>
+                <p style="color:var(--text-secondary);font-size:0.85em;line-height:1.7;margin:0;">${d.summary}</p>
+            </div>
+
+            <!-- Keyword hits -->
+            <div style="margin-bottom:20px;">
+                <div class="section-header"><i class="bi bi-tags me-2"></i>Detected Terms</div>
+                <div style="margin-bottom:8px;">
+                    ${d.keyword_hits.seizure_terms.length ? '<span style="font-size:0.72em;color:var(--text-muted);display:block;margin-bottom:4px;">⚡ Seizure/Epilepsy</span>' + chips(d.keyword_hits.seizure_terms, 'kw-seizure') : ''}
+                    ${d.keyword_hits.eeg_terms.length ? '<span style="font-size:0.72em;color:var(--text-muted);display:block;margin-top:8px;margin-bottom:4px;">📡 EEG Terms</span>' + chips(d.keyword_hits.eeg_terms, 'kw-eeg') : ''}
+                    ${d.keyword_hits.medications.length ? '<span style="font-size:0.72em;color:var(--text-muted);display:block;margin-top:8px;margin-bottom:4px;">💊 Medications</span>' + chips(d.keyword_hits.medications, 'kw-med') : ''}
+                    ${d.keyword_hits.brain_regions.length ? '<span style="font-size:0.72em;color:var(--text-muted);display:block;margin-top:8px;margin-bottom:4px;">🧠 Brain Regions</span>' + chips(d.keyword_hits.brain_regions, 'kw-region') : ''}
+                    ${d.keyword_hits.normal_terms.length ? '<span style="font-size:0.72em;color:var(--text-muted);display:block;margin-top:8px;margin-bottom:4px;">✅ Normal Indicators</span>' + chips(d.keyword_hits.normal_terms, 'kw-normal') : ''}
+                    ${!d.keyword_hits.seizure_terms.length && !d.keyword_hits.eeg_terms.length
+                        ? '<span style="color:var(--text-muted);font-size:0.82em;">No significant medical terms detected.</span>' : ''}
+                </div>
+            </div>
+
+            <!-- Key sentences -->
+            ${d.key_sentences && d.key_sentences.length ? `
+            <div style="margin-bottom:20px;">
+                <div class="section-header"><i class="bi bi-quote me-2"></i>Key Extracts</div>
+                ${sentences}
+            </div>` : ''}
+
+            <!-- Recommendations -->
+            <div>
+                <div class="section-header"><i class="bi bi-clipboard-pulse me-2"></i>Recommendations</div>
+                ${recHtml}
+            </div>
+
+            <!-- Text preview (collapsible) -->
+            ${d.text_preview ? `
+            <div style="margin-top:16px;">
+                <button onclick="togglePreview()" class="btn-outline-cyan btn btn-sm" style="font-size:0.75em;" id="previewBtn">
+                    <i class="bi bi-file-text me-1"></i>Show Extracted Text
+                </button>
+                <div id="textPreview" style="display:none;margin-top:10px;">
+                    <div class="text-preview">${escapeHtml(d.text_preview)}${d.word_count > 150 ? '\n\n[... truncated ...]' : ''}</div>
+                </div>
+            </div>` : ''}
+        </div>
+
+        <!-- Disclaimer -->
+        <div style="padding:12px 24px;background:rgba(255,140,66,0.06);border-top:1px solid var(--border);">
+            <div style="color:var(--accent-orange);font-size:0.75em;">
+                ⚠️ <strong>Disclaimer:</strong> This AI analysis is for educational purposes only and does not constitute medical advice.
+                Results must be reviewed by a licensed neurologist.
+            </div>
+        </div>
+    </div>`;
+
+    // Animate the probability bar
+    setTimeout(() => {
+        const bar = document.getElementById('probBar');
+        if (bar) bar.style.width = d.eeg_probability + '%';
+    }, 100);
+}
+
+function togglePreview() {
+    const preview = document.getElementById('textPreview');
+    const btn = document.getElementById('previewBtn');
+    if (preview.style.display === 'none') {
+        preview.style.display = 'block';
+        btn.innerHTML = '<i class="bi bi-file-text me-1"></i>Hide Extracted Text';
+    } else {
+        preview.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-file-text me-1"></i>Show Extracted Text';
+    }
+}
+
+function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

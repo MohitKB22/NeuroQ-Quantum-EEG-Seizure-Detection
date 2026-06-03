@@ -1,0 +1,15 @@
+# QEEG Epilepsy Detection System — Dependencies
+# Compatible with Python 3.9 – 3.14 (macOS arm64, Windows, Linux)
+
+Flask>=3.0.0
+numpy>=1.26.0
+scipy>=1.14.0
+scikit-learn>=1.4.0
+pandas>=2.1.0
+Werkzeug>=3.0.0
+Jinja2>=3.1.0
+joblib>=1.3.0
+
+PyPDF2>=3.0.0
+pdfplumber>=0.10.0
+Pillow>=10.0.0

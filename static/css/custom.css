@@ -1,0 +1,85 @@
+/* QEEG System - Custom Stylesheet */
+
+/* Progress bar animation for confidence */
+.confidence-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--accent-blue), var(--accent-cyan));
+    transition: width 1s ease-out;
+}
+
+/* Glowing border effect for seizure cards */
+.seizure-alert-card {
+    border-color: var(--accent-red) !important;
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.2) !important;
+}
+
+.normal-card {
+    border-color: var(--accent-green) !important;
+    box-shadow: 0 0 15px rgba(0, 233, 138, 0.1) !important;
+}
+
+/* Probability gauge */
+.prob-gauge-container {
+    position: relative;
+    width: 120px;
+    height: 60px;
+    overflow: hidden;
+}
+
+/* Table row highlight */
+tr.seizure-row {
+    background: rgba(255, 71, 87, 0.04) !important;
+}
+
+tr.normal-row {
+    background: rgba(0, 233, 138, 0.03) !important;
+}
+
+/* EEG channel label */
+.ch-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65em;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+
+/* Quantum circuit visualization */
+.qubit-line {
+    stroke: var(--border-bright);
+    stroke-width: 1;
+}
+
+.gate-box {
+    fill: rgba(139, 92, 246, 0.15);
+    stroke: var(--accent-purple);
+    stroke-width: 1;
+    rx: 3;
+}
+
+/* Loading shimmer */
+@keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+}
+
+.loading-shimmer {
+    background: linear-gradient(90deg, 
+        var(--bg-card) 25%, 
+        var(--bg-card-hover) 50%, 
+        var(--bg-card) 75%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+    border-radius: 8px;
+}
+
+/* Print styles */
+@media print {
+    .navbar-dark-custom,
+    .footer-dark,
+    .btn-quantum,
+    .btn-outline-cyan { display: none !important; }
+    
+    body { background: white !important; color: #333 !important; }
+    .card-dark { background: white !important; border: 1px solid #ddd !important; }
+}
