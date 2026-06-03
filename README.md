@@ -66,12 +66,3 @@ The **QEEG Epilepsy Detection System** is an advanced final year project that co
 | ⚖️ Ensemble Weights | 55% Gradient Boosting · 25% Quantum Kernel · 20% Physiological Index |
 
 ---
-
-## 📜 License
-
-```
-MIT License
-
----
-
-*⚡ Built with Python · Flask · Quantum Computing · AI/ML · 🎓 Final Year Project 2025*
