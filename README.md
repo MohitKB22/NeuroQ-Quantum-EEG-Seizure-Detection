@@ -71,6 +71,7 @@ The **QEEG Epilepsy Detection System** is an advanced final year project that co
 
 ```
 MIT License
+
 ---
 
 *⚡ Built with Python · Flask · Quantum Computing · AI/ML · 🎓 Final Year Project 2025*
