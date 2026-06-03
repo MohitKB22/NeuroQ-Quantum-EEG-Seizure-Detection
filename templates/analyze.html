@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+{% block title %}EEG Analysis — QEEG System{% endblock %}
+
+{% block extra_css %}
+<style>
+.step-indicator {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.75em;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+.step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.3s;
+}
+.step-dot.active { background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
+.step-dot.done { background: var(--accent-green); }
+
+.channel-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(30,45,71,0.3);
+}
+
+.channel-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7em;
+    color: var(--text-muted);
+    width: 32px;
+    flex-shrink: 0;
+}
+
+.processing-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(6, 10, 20, 0.9);
+    z-index: 9998;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+}
+
+.processing-steps {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    list-style: none;
+    padding: 0;
+    margin-top: 24px;
+    text-align: left;
+}
+
+.processing-steps li {
+    padding: 6px 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.4s;
+}
+
+.processing-steps li.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.processing-steps li.done { color: var(--accent-green); }
+.processing-steps li.active { color: var(--accent-cyan); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Processing Overlay -->
+<div class="processing-overlay" id="processingOverlay">
+    <div class="quantum-spinner" style="width:60px;height:60px;border-width:4px;"></div>
+    <div style="font-family:'Unbounded',sans-serif;font-size:1.3em;font-weight:700;margin-top:24px;color:var(--accent-cyan);" id="processingTitle">
+        Initializing Quantum Circuit...
+    </div>
+    <div style="color:var(--text-muted);font-size:0.85em;margin-top:6px;" id="processingSubtitle">
+        8-qubit ZZ Feature Map · 2 repetitions
+    </div>
+    <ul class="processing-steps" id="processingSteps">
+        <li id="step1">⬡ Loading EEG signal (19 channels, 256 Hz)</li>
+        <li id="step2">⬡ Bandpass filtering [0.5–80 Hz]</li>
+        <li id="step3">⬡ Extracting frequency band powers</li>
+        <li id="step4">⬡ Computing Hjorth parameters</li>
+        <li id="step5">⬡ Encoding features into quantum state</li>
+        <li id="step6">⬡ Running quantum kernel estimation</li>
+        <li id="step7">⬡ Hybrid ensemble classification</li>
+        <li id="step8">⬡ Generating clinical report</li>
+    </ul>
+    <div class="mt-3 quantum-chip" id="processingTime">Elapsed: 0.0s</div>
+</div>
+
+<div class="container py-4">
+    
+    <div class="row g-4">
+        <!-- Left Panel: Configuration -->
+        <div class="col-lg-4">
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-person-badge me-2"></i>Patient Info</div>
+                
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Patient Name</label>
+                    <input type="text" id="patientName" value="Demo Patient" class="form-control" 
+                           style="background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary);font-size:0.85em;">
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Age</label>
+                        <input type="number" id="patientAge" value="8" min="1" max="18" class="form-control" 
+                               style="background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary);font-size:0.85em;">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Patient ID</label>
+                        <input type="text" id="patientId" value="PT-DEMO" class="form-control" 
+                               style="background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary);font-size:0.85em;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="section-header"><i class="bi bi-sliders me-2"></i>EEG Settings</div>
+                
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">EEG Type (Demo)</label>
+                    <select id="eegType" class="form-select" style="background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary);font-size:0.85em;" onchange="updatePreview()">
+                        <option value="normal">Normal Background Activity</option>
+                        <option value="focal">Focal Seizure (Temporal)</option>
+                        <option value="generalized">Generalized Tonic-Clonic</option>
+                        <option value="absence">Absence Seizure (3 Hz)</option>
+                        <option value="random">Random / Surprise</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Recording Duration</label>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="range" id="duration" min="5" max="30" value="10" class="form-range" style="flex:1;">
+                        <span style="font-family:'DM Mono',monospace;font-size:0.8em;color:var(--accent-cyan);width:40px;" id="durationLabel">10s</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:0.78em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Quantum Circuit Depth</label>
+                    <div style="display:flex;gap:6px;">
+                        {% for d in [4, 8, 16] %}
+                        <button onclick="setDepth({{ d }}, this)" class="btn" style="flex:1;font-size:0.75em;padding:6px;background:{% if d == 8 %}rgba(59,123,255,0.15);border-color:var(--accent-blue);color:var(--accent-blue){% else %}var(--bg-secondary);border-color:var(--border);color:var(--text-muted){% endif %};border-radius:6px;">{{ d }} Gates</button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="runAnalysis()" class="btn-quantum btn w-100 py-3" id="analyzeBtn" style="font-size:1em;letter-spacing:1px;">
+                <i class="bi bi-lightning-charge me-2"></i>RUN QUANTUM ANALYSIS
+            </button>
+            
+            <div class="mt-2 text-center" style="color:var(--text-muted);font-size:0.75em;">
+                Est. processing time: ~1–2 seconds
+            </div>
+        </div>
+
+        <!-- Right Panel: EEG Preview + Results -->
+        <div class="col-lg-8">
+            
+            <!-- EEG Waveform Preview -->
+            <div class="card-dark p-4 mb-4 fade-in">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="section-header mb-0"><i class="bi bi-activity me-2"></i>EEG Waveform Preview</div>
+                    <button onclick="refreshPreview()" class="btn-outline-cyan btn btn-sm">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                </div>
+                <div id="eegWaveformChart" style="height:300px;"></div>
+                <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
+                    {% for ch in ['Fp1','F3','C3','P3','O1','Fz','Cz'] %}
+                    <span style="font-family:'DM Mono',monospace;font-size:0.68em;color:var(--text-muted);">{{ ch }}</span>
+                    {% endfor %}
+                    <span style="font-size:0.68em;color:var(--text-muted);">+12 more channels</span>
+                </div>
+            </div>
+            
+            <!-- Results Panel (shown after analysis) -->
+            <div id="resultsPanel" style="display:none;">
+                <div class="card-dark p-4 mb-4 fade-in" id="resultsSummary">
+                    <!-- Filled by JS -->
+                </div>
+                
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card-dark p-4">
+                            <div class="section-header"><i class="bi bi-bar-chart me-2"></i>Band Powers</div>
+                            <div id="bandPowerChart" style="height:220px;"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card-dark p-4">
+                            <div class="section-header"><i class="bi bi-graph-up me-2"></i>Power Spectrum</div>
+                            <div id="spectrumChart" style="height:220px;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row g-4 mt-1">
+                    <div class="col-md-6">
+                        <div class="card-dark p-4">
+                            <div class="section-header"><i class="bi bi-cpu me-2"></i>Quantum Metrics</div>
+                            <div id="quantumMetrics"><!-- Filled by JS --></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card-dark p-4">
+                            <div class="section-header"><i class="bi bi-clipboard-pulse me-2"></i>Recommendations</div>
+                            <div id="recommendationsPanel"><!-- Filled by JS --></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Placeholder when no results -->
+            <div id="noResultsPlaceholder" class="card-dark p-5 text-center fade-in">
+                <div style="font-size:4em;margin-bottom:16px;opacity:0.3;">⚡</div>
+                <div style="color:var(--text-muted);font-size:0.9em;">Configure settings and click <strong style="color:var(--accent-cyan);">Run Quantum Analysis</strong> to see results</div>
+                <div style="color:var(--text-muted);font-size:0.78em;margin-top:8px;">Results include EEG visualization, frequency analysis, and quantum classification</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedDepth = 8;
+let analysisResult = null;
+
+document.getElementById('duration').addEventListener('input', function() {
+    document.getElementById('durationLabel').textContent = this.value + 's';
+});
+
+function setDepth(d, btn) {
+    selectedDepth = d;
+    document.querySelectorAll('[onclick^="setDepth"]').forEach(b => {
+        b.style.cssText = 'flex:1;font-size:0.75em;padding:6px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;';
+    });
+    btn.style.cssText = 'flex:1;font-size:0.75em;padding:6px;background:rgba(59,123,255,0.15);border:1px solid var(--accent-blue);color:var(--accent-blue);border-radius:6px;';
+}
+
+// Generate preview waveform
+function generatePreviewWaveform() {
+    const type = document.getElementById('eegType').value;
+    const t = Array.from({length: 512}, (_, i) => i / 256);
+    const channels = ['Fp1', 'F3', 'C3', 'P3', 'O1'];
+    const colors = ['#00d4ff', '#8b5cf6', '#00e98a', '#ff8c42', '#ff4757'];
+    
+    const traces = channels.map((ch, idx) => {
+        const offset = idx * 3;
+        let y = t.map(ti => {
+            let base = Math.sin(2*Math.PI*10*ti + idx) * 1.2 
+                     + Math.sin(2*Math.PI*20*ti) * 0.4
+                     + (Math.random() - 0.5) * 0.3;
+            
+            if (type === 'focal' && idx === 2) {
+                base += Math.sin(2*Math.PI*3*ti) * 3.5;
+                if (ti % (1/3) < 0.02) base += 5 * Math.exp(-(ti % (1/3)) * 100);
+            } else if (type === 'generalized') {
+                base += Math.sin(2*Math.PI*2.5*ti) * 2.5;
+                if (ti % 0.4 < 0.03) base += 4;
+            } else if (type === 'absence') {
+                base = Math.sin(2*Math.PI*3*ti) * 3.5 + (Math.random()-0.5)*0.3;
+                if (ti % (1/3) < 0.02) base += 3;
+            }
+            
+            return base - offset;
+        });
+        
+        return {
+            x: t, y,
+            name: ch,
+            type: 'scatter', mode: 'lines',
+            line: { color: colors[idx], width: 1 },
+            hoverinfo: 'none'
+        };
+    });
+    
+    Plotly.newPlot('eegWaveformChart', traces, {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#8ba0c4', size: 10 },
+        xaxis: { 
+            gridcolor: 'rgba(30,45,71,0.5)', color: '#4a6080',
+            title: { text: 'Time (s)', font: { size: 10 } }
+        },
+        yaxis: { 
+            gridcolor: 'rgba(30,45,71,0.3)', color: '#4a6080',
+            showticklabels: false,
+            title: { text: 'Amplitude (μV)', font: { size: 10 } }
+        },
+        legend: { bgcolor: 'transparent', font: { color: '#8ba0c4', size: 10 }, orientation: 'h', y: -0.15 },
+        margin: { t: 10, r: 10, b: 50, l: 40 },
+        showlegend: true
+    }, { responsive: true, displayModeBar: false });
+}
+
+function updatePreview() { generatePreviewWaveform(); }
+function refreshPreview() { generatePreviewWaveform(); }
+
+// Initialize
+generatePreviewWaveform();
+
+async function runAnalysis() {
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    
+    // Show overlay
+    const overlay = document.getElementById('processingOverlay');
+    overlay.style.display = 'flex';
+    
+    // Animate steps
+    const steps = ['step1','step2','step3','step4','step5','step6','step7','step8'];
+    let startTime = Date.now();
+    
+    const timer = setInterval(() => {
+        document.getElementById('processingTime').textContent = 
+            `Elapsed: ${((Date.now()-startTime)/1000).toFixed(1)}s`;
+    }, 100);
+    
+    for (let i = 0; i < steps.length; i++) {
+        if (i > 0) document.getElementById(steps[i-1]).classList.remove('active');
+        const el = document.getElementById(steps[i]);
+        el.classList.add('visible', 'active');
+        el.innerHTML = el.innerHTML.replace('⬡', '◈');
+        await new Promise(r => setTimeout(r, 200 + Math.random() * 150));
+        el.classList.remove('active');
+        el.classList.add('done');
+        el.innerHTML = el.innerHTML.replace('◈', '✓');
+    }
+    
+    try {
+        const response = await fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: 'demo',
+                seizure_type: document.getElementById('eegType').value,
+                patient_name: document.getElementById('patientName').value,
+                patient_id: document.getElementById('patientId').value,
+                patient_age: parseInt(document.getElementById('patientAge').value)
+            })
+        });
+        
+        analysisResult = await response.json();
+        
+        clearInterval(timer);
+        overlay.style.display = 'none';
+        
+        displayResults(analysisResult);
+        showToast(`Analysis complete: ${analysisResult.prediction}`, 
+                  analysisResult.prediction === 'Seizure' ? 'error' : 'success');
+        
+    } catch (e) {
+        clearInterval(timer);
+        overlay.style.display = 'none';
+        showToast('Analysis failed. Please try again.', 'error');
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-lightning-charge me-2"></i>RUN QUANTUM ANALYSIS';
+}
+
+function displayResults(r) {
+    document.getElementById('noResultsPlaceholder').style.display = 'none';
+    document.getElementById('resultsPanel').style.display = 'block';
+    
+    const isSeizure = r.prediction === 'Seizure';
+    const color = isSeizure ? '#ff4757' : '#00e98a';
+    const probColor = r.seizure_probability > 60 ? '#ff4757' : r.seizure_probability > 30 ? '#ff8c42' : '#00e98a';
+    
+    // Summary Card
+    document.getElementById('resultsSummary').innerHTML = `
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <div style="font-size:0.7em;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">ANALYSIS ${r.analysis_id}</div>
+                <div style="font-family:'Unbounded',sans-serif;font-size:1.6em;font-weight:800;color:${color};">
+                    ${isSeizure ? '🚨' : '✅'} ${r.prediction.toUpperCase()} DETECTED
+                </div>
+                <div style="color:var(--text-muted);font-size:0.82em;margin-top:4px;">${r.patient_name} · Age ${r.patient_age} · ${r.timestamp}</div>
+            </div>
+            <div class="d-flex gap-3 flex-wrap">
+                <div class="metric-card" style="min-width:100px;padding:12px;">
+                    <div class="metric-value" style="color:${probColor};font-size:1.6em;">${r.seizure_probability}%</div>
+                    <div class="metric-label">Seizure Prob.</div>
+                </div>
+                <div class="metric-card" style="min-width:100px;padding:12px;">
+                    <div class="metric-value" style="color:var(--accent-cyan);font-size:1.6em;">${r.confidence}%</div>
+                    <div class="metric-label">Confidence</div>
+                </div>
+                <div class="metric-card" style="min-width:100px;padding:12px;">
+                    <div class="metric-value" style="color:var(--accent-purple);font-size:1.3em;">${r.processing_time}s</div>
+                    <div class="metric-label">Process Time</div>
+                </div>
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-3 flex-wrap">
+            <a href="/results/${r.analysis_id}" class="btn-quantum btn btn-sm">
+                <i class="bi bi-eye me-1"></i>Full Report
+            </a>
+            <a href="/api/generate_report/${r.analysis_id}" class="btn-outline-cyan btn btn-sm">
+                <i class="bi bi-download me-1"></i>Download HTML Report
+            </a>
+        </div>
+    `;
+    
+    // Band Power Chart
+    const bands = Object.keys(r.band_powers || {});
+    const powers = Object.values(r.band_powers || {});
+    const bandColors = ['#8b5cf6', '#3b7bff', '#00d4ff', '#00e98a', '#ff8c42'];
+    
+    Plotly.newPlot('bandPowerChart', [{
+        x: bands, y: powers,
+        type: 'bar',
+        marker: { color: bandColors, opacity: 0.8 },
+        hovertemplate: '<b>%{x}</b><br>%{y:.4f} μV²/Hz<extra></extra>'
+    }], {
+        paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+        font: { color: '#8ba0c4', size: 10 },
+        xaxis: { gridcolor: '#1e2d47', color: '#4a6080' },
+        yaxis: { gridcolor: '#1e2d47', color: '#4a6080' },
+        margin: { t: 10, r: 10, b: 30, l: 50 }
+    }, { responsive: true, displayModeBar: false });
+    
+    // Power Spectrum
+    const spectral = r.spectral_data || {};
+    Plotly.newPlot('spectrumChart', [{
+        x: spectral.freqs || [],
+        y: spectral.psd || [],
+        type: 'scatter', mode: 'lines',
+        line: { color: '#00d4ff', width: 1.5 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(0,212,255,0.05)',
+        hovertemplate: '<b>%{x:.1f} Hz</b><br>PSD: %{y:.4f}<extra></extra>'
+    }], {
+        paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+        font: { color: '#8ba0c4', size: 10 },
+        xaxis: { gridcolor: '#1e2d47', color: '#4a6080', title: { text: 'Frequency (Hz)', font: { size: 10 } } },
+        yaxis: { gridcolor: '#1e2d47', color: '#4a6080' },
+        margin: { t: 10, r: 10, b: 40, l: 50 }
+    }, { responsive: true, displayModeBar: false });
+    
+    // Quantum Metrics
+    const qf = r.quantum_features || {};
+    let qHtml = '<div class="d-flex flex-column gap-2">';
+    const qItems = [
+        ['Kernel Similarity (Normal)', qf.kernel_similarity_normal, '#00e98a'],
+        ['Kernel Similarity (Seizure)', qf.kernel_similarity_seizure, '#ff4757'],
+        ['Quantum Seizure Score', qf.quantum_seizure_score, '#ff8c42'],
+        ['Entanglement Entropy', qf.entanglement_entropy, '#8b5cf6'],
+        ['Quantum Fisher Info', qf.quantum_fisher_info, '#3b7bff'],
+        ['Circuit Depth', qf.circuit_depth + ' gates', '#00d4ff'],
+    ];
+    qItems.forEach(([label, val, color]) => {
+        qHtml += `<div class="d-flex justify-content-between py-1" style="border-bottom:1px solid var(--border);">
+            <span style="font-size:0.78em;color:var(--text-secondary);">${label}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:0.78em;color:${color};">${typeof val === 'number' ? val.toFixed(4) : val}</span>
+        </div>`;
+    });
+    qHtml += '</div>';
+    document.getElementById('quantumMetrics').innerHTML = qHtml;
+    
+    // Recommendations
+    const recs = r.recommendations || [];
+    const pColors = { URGENT: '#ff4757', HIGH: '#ff8c42', MEDIUM: '#3b7bff', INFO: '#00e98a' };
+    let recHtml = '<div class="d-flex flex-column gap-2">';
+    recs.forEach(rec => {
+        const pc = pColors[rec.priority] || '#8ba0c4';
+        recHtml += `<div style="display:flex;gap:10px;padding:8px;border-left:3px solid ${pc};background:rgba(255,255,255,0.02);border-radius:4px;">
+            <span style="font-size:1.2em;flex-shrink:0;">${rec.icon}</span>
+            <div>
+                <div style="color:${pc};font-size:0.68em;font-weight:700;letter-spacing:1px;">${rec.priority}</div>
+                <div style="font-size:0.78em;color:var(--text-secondary);margin-top:2px;">${rec.action}</div>
+            </div>
+        </div>`;
+    });
+    recHtml += '</div>';
+    document.getElementById('recommendationsPanel').innerHTML = recHtml;
+}
+</script>
+{% endblock %}

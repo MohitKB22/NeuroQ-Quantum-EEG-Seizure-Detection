@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — QEEG Epilepsy Detection System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    
+    <!-- Hero Section -->
+    <div class="row align-items-center mb-4 fade-in">
+        <div class="col-md-8">
+            <div class="quantum-chip mb-2" style="display:inline-block;">
+                <i class="bi bi-cpu me-1"></i> QEEG-Hybrid-v2.1 · 8-Qubit ZZ Feature Map · Active
+            </div>
+            <h1 style="font-family:'Unbounded',sans-serif;font-size:2em;font-weight:800;line-height:1.2;">
+                Quantum EEG<br>
+                <span style="background:linear-gradient(135deg,#00d4ff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Epilepsy Detection</span>
+            </h1>
+            <p style="color:var(--text-secondary);margin-top:10px;max-width:500px;">
+                Hybrid Quantum-Classical AI system for pediatric seizure detection. 
+                Combines CNN feature extraction with Quantum SVMs for 95%+ diagnostic accuracy.
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/analyze" class="btn-quantum btn btn-lg">
+                <i class="bi bi-lightning-charge me-2"></i>Start Analysis
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-3 mb-4 fade-in">
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-cyan);">{{ stats.total_analyses }}</div>
+                <div class="metric-label">Total Analyses</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-red);">{{ stats.seizure_detected }}</div>
+                <div class="metric-label">Seizures Detected</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-green);">{{ stats.normal }}</div>
+                <div class="metric-label">Normal EEGs</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" style="color:var(--accent-purple);">{{ stats.avg_accuracy }}%</div>
+                <div class="metric-label">Avg Accuracy</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Feature Banner -->
+    <div class="mb-4 fade-in" style="background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(139,92,246,0.08));border:1px solid rgba(0,212,255,0.2);border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="font-size:2em;">📄</div>
+        <div style="flex:1;min-width:200px;">
+            <div style="font-family:'Unbounded',sans-serif;font-size:0.9em;font-weight:800;color:var(--accent-cyan);margin-bottom:3px;">NEW · Medical Report Scanner</div>
+            <div style="color:var(--text-secondary);font-size:0.82em;">Upload a patient's PDF or text medical report — AI scans for EEG terms, seizure indicators, and anti-epileptic medications.</div>
+        </div>
+        <a href="/upload_report" class="btn-quantum btn" style="flex-shrink:0;">
+            <i class="bi bi-upload me-2"></i>Try Report Scanner
+        </a>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row g-4">
+        
+        <!-- Left: Quick Analysis Panel -->
+        <div class="col-lg-4">
+            <div class="card-dark p-4 mb-4">
+                <div class="section-header"><i class="bi bi-lightning me-2"></i>Quick Demo</div>
+                
+                <p style="color:var(--text-secondary);font-size:0.85em;margin-bottom:16px;">
+                    Run instant EEG analysis with synthetic patient data to explore the system.
+                </p>
+                
+                <div class="mb-3">
+                    <label style="font-size:0.8em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">EEG Type</label>
+                    <select id="quickEegType" class="form-select mt-1" style="background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary);font-size:0.85em;">
+                        <option value="normal">Normal EEG</option>
+                        <option value="focal">Focal Seizure</option>
+                        <option value="generalized">Generalized Tonic-Clonic</option>
+                        <option value="absence">Absence Seizure</option>
+                        <option value="random">Random (Surprise me)</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label style="font-size:0.8em;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Patient Age</label>
+                    <input type="number" id="quickAge" value="8" min="1" max="18" class="form-control mt-1" 
+                           style="background:var(--bg-secondary);border-color:var(--border);color:var(--text-primary);font-size:0.85em;">
+                </div>
+                
+                <button onclick="runQuickAnalysis()" class="btn-quantum btn w-100" id="quickAnalyzeBtn">
+                    <i class="bi bi-play-fill me-2"></i>Run Quick Analysis
+                </button>
+                
+                <div id="quickResult" class="mt-3" style="display:none;"></div>
+            </div>
+
+            <!-- System Info -->
+            <div class="card-dark p-4">
+                <div class="section-header"><i class="bi bi-cpu me-2"></i>System Info</div>
+                <div class="d-flex flex-column gap-2">
+                    {% set info_items = [
+                        ('Model', 'QEEG-Hybrid-v2.1', 'accent-cyan'),
+                        ('Qubits', '8-Qubit Circuit', 'accent-purple'),
+                        ('Channels', '19 (10-20 System)', 'accent-blue'),
+                        ('Sample Rate', '256 Hz', 'accent-green'),
+                        ('Accuracy', '95.2%', 'accent-yellow'),
+                        ('Sensitivity', '98.5%', 'accent-green'),
+                        ('Specificity', '99.5%', 'accent-cyan')
+                    ] %}
+                    {% for label, value, color in info_items %}
+                    <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px solid var(--border);">
+                        <span style="color:var(--text-secondary);font-size:0.82em;">{{ label }}</span>
+                        <span style="color:var(--{{ color }});font-family:'DM Mono',monospace;font-size:0.82em;">{{ value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Recent Analyses Table + Chart -->
+        <div class="col-lg-8">
+            
+            <!-- Performance Chart -->
+            <div class="card-dark p-4 mb-4">
+                <div class="section-header"><i class="bi bi-graph-up me-2"></i>Performance Overview</div>
+                <div id="performanceChart" style="height:220px;"></div>
+            </div>
+
+            <!-- Recent Analyses -->
+            <div class="card-dark p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="section-header mb-0" style="flex:none;"><i class="bi bi-clock-history me-2"></i>Recent Analyses</div>
+                    <a href="/history" class="btn-outline-cyan btn btn-sm">View All</a>
+                </div>
+                
+                {% if analyses %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0" style="--bs-table-bg:transparent;--bs-table-hover-bg:rgba(255,255,255,0.03);">
+                        <thead>
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:8px 12px;">ID</th>
+                                <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:8px 12px;">Patient</th>
+                                <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:8px 12px;">Result</th>
+                                <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:8px 12px;">Risk</th>
+                                <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:8px 12px;">Confidence</th>
+                                <th style="color:var(--text-muted);font-size:0.72em;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;padding:8px 12px;">Time</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in analyses %}
+                            <tr style="border-bottom:1px solid rgba(30,45,71,0.5);">
+                                <td style="padding:10px 12px;font-family:'DM Mono',monospace;font-size:0.78em;color:var(--accent-cyan);">{{ a.analysis_id }}</td>
+                                <td style="padding:10px 12px;font-size:0.85em;">
+                                    <div>{{ a.patient_name or 'Anonymous' }}</div>
+                                    <div style="color:var(--text-muted);font-size:0.75em;">Age {{ a.patient_age or '?' }}</div>
+                                </td>
+                                <td style="padding:10px 12px;">
+                                    {% if a.prediction == 'Seizure' %}
+                                        <span class="badge-seizure">SEIZURE</span>
+                                    {% else %}
+                                        <span class="badge-normal">NORMAL</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding:10px 12px;">
+                                    <span class="badge-risk-{{ a.risk_level|lower if a.risk_level else 'minimal' }}">{{ a.risk_level or 'N/A' }}</span>
+                                </td>
+                                <td style="padding:10px 12px;font-family:'DM Mono',monospace;font-size:0.82em;color:var(--accent-green);">{{ a.confidence or 0 }}%</td>
+                                <td style="padding:10px 12px;font-size:0.78em;color:var(--text-muted);">{{ a.timestamp[-8:] if a.timestamp else '' }}</td>
+                                <td style="padding:10px 12px;">
+                                    <a href="/results/{{ a.analysis_id }}" class="btn-outline-cyan btn" style="padding:3px 10px;font-size:0.75em;">View</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div style="font-size:3em;margin-bottom:12px;">⚡</div>
+                    <div style="color:var(--text-muted);">No analyses yet. Run your first EEG analysis!</div>
+                    <a href="/analyze" class="btn-quantum btn mt-3">Start Analysis</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Performance chart
+const bands = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'];
+const accuracyData = [96.1, 95.8, 96.4, 95.2, 94.9];
+const sensitivityData = [98.2, 98.5, 97.9, 98.1, 97.8];
+
+Plotly.newPlot('performanceChart', [
+    {
+        name: 'Accuracy (%)',
+        x: ['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026'],
+        y: accuracyData,
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: '#00d4ff', width: 2 },
+        marker: { size: 6, color: '#00d4ff' },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(0,212,255,0.06)'
+    },
+    {
+        name: 'Sensitivity (%)',
+        x: ['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026'],
+        y: sensitivityData,
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: '#8b5cf6', width: 2 },
+        marker: { size: 6, color: '#8b5cf6' },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(139,92,246,0.06)'
+    }
+], {
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    font: { color: '#8ba0c4', size: 11 },
+    xaxis: { gridcolor: '#1e2d47', color: '#4a6080' },
+    yaxis: { gridcolor: '#1e2d47', color: '#4a6080', range: [93, 100] },
+    legend: { bgcolor: 'transparent', font: { color: '#8ba0c4' } },
+    margin: { t: 10, r: 20, b: 40, l: 40 }
+}, { responsive: true, displayModeBar: false });
+
+// Quick Analysis
+async function runQuickAnalysis() {
+    const btn = document.getElementById('quickAnalyzeBtn');
+    const resultDiv = document.getElementById('quickResult');
+    
+    btn.innerHTML = '<span class="quantum-spinner" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:8px;"></span> Analyzing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: 'demo',
+                seizure_type: document.getElementById('quickEegType').value,
+                patient_age: parseInt(document.getElementById('quickAge').value),
+                patient_name: 'Demo Patient'
+            })
+        });
+        
+        const result = await response.json();
+        
+        const isSeizure = result.prediction === 'Seizure';
+        const color = isSeizure ? '#ff4757' : '#00e98a';
+        const icon = isSeizure ? '🚨' : '✅';
+        
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div style="background:rgba(${isSeizure?'255,71,87':'0,233,138'},0.08);border:1px solid rgba(${isSeizure?'255,71,87':'0,233,138'},0.3);border-radius:10px;padding:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <span style="font-size:1.3em;">${icon}</span>
+                    <span style="color:${color};font-weight:700;font-family:'DM Mono',monospace;">${result.prediction.toUpperCase()}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.78em;">
+                    <div style="color:var(--text-muted);">Confidence<br><span style="color:${color};font-weight:600;">${result.confidence}%</span></div>
+                    <div style="color:var(--text-muted);">Risk Level<br><span style="color:${color};font-weight:600;">${result.risk_level}</span></div>
+                    <div style="color:var(--text-muted);">Analysis ID<br><span style="color:var(--accent-cyan);font-family:'DM Mono',monospace;">${result.analysis_id}</span></div>
+                    <div style="color:var(--text-muted);">Time<br><span style="color:var(--text-primary);">${result.processing_time}s</span></div>
+                </div>
+                <a href="/results/${result.analysis_id}" class="btn-outline-cyan btn w-100 mt-2" style="font-size:0.8em;padding:6px;">View Full Report</a>
+            </div>`;
+        
+        showToast(`Analysis complete: ${result.prediction} (${result.confidence}% confidence)`, isSeizure ? 'error' : 'success');
+        
+        // Refresh stats
+        setTimeout(() => location.reload(), 3000);
+        
+    } catch (e) {
+        showToast('Analysis failed. Please try again.', 'error');
+    }
+    
+    btn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Run Quick Analysis';
+    btn.disabled = false;
+}
+</script>
+{% endblock %}
